@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -36,11 +35,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cs407.lab09.R
 import com.cs407.lab09.ui.theme.Lab09Theme
 import kotlin.math.roundToInt
 
-// Main Activity
 class MainActivity : ComponentActivity() {
 
     private val viewModel: BallViewModel by viewModels()
@@ -62,72 +59,67 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GameScreen(viewModel: BallViewModel) {
-    // TODO: Initialize the sensorManager
+    val context = LocalContext.current
+
+    // 1️⃣ SensorManager
     val sensorManager = remember {
-        // ... getSystemService ...
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
 
-    // TODO: Get the gravitySensor
+    // 2️⃣ 重力传感器
     val gravitySensor = remember {
-        // ... getDefaultSensor ...
+        sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
     }
 
-    // This effect runs when the composable enters the screen
-    // and cleans up when it leaves
+    // 3️⃣ 注册 / 注销监听器
     DisposableEffect(sensorManager, gravitySensor) {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                // TODO: Pass the sensor event to the ViewModel
-                event?.let {
-                    // ...
-                }
+                event?.let { viewModel.onSensorDataChanged(it) }
             }
+
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // Do nothing
+                // 不需要处理
             }
         }
 
-        // TODO: Register the sensor listener
-        // (Don't forget to add a null check for gravitySensor!)
         if (gravitySensor != null) {
-            // ... sensorManager.registerListener ...
+            sensorManager.registerListener(
+                listener,
+                gravitySensor,
+                SensorManager.SENSOR_DELAY_GAME
+            )
         }
 
-        // onDispose is called when the composable leaves the screen
         onDispose {
-            // TODO: Unregister the sensor listener
-            // (Don't forget to add a null check for gravitySensor!)
             if (gravitySensor != null) {
-                // ... sensorManager.unregisterListener ...
+                sensorManager.unregisterListener(listener, gravitySensor)
             }
         }
     }
 
-    // UI layout
     Column(modifier = Modifier.fillMaxSize()) {
-        // 1. The Reset Button
+
+        // Reset 按钮
         Button(
-            onClick = {
-                // TODO: Call the reset function on the ViewModel
-            },
+            onClick = { viewModel.reset() },
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .padding(16.dp)
+                .padding(top = 40.dp, bottom = 16.dp)
         ) {
             Text(text = "Reset")
         }
 
-        // 2. The Game Field
+        // 小球尺寸
         val ballSize = 50.dp
-        val ballSizePx = with(LocalDensity.current) { ballSize.toPx() }
+        val density = LocalDensity.current
+        val ballSizePx = with(density) { ballSize.toPx() }
+        val ballRadiusPx = ballSizePx / 2f
 
-        // TODO: Collect the ball's position from the ViewModel
-        // val ballPosition by viewModel.ballPosition.collectAsStateWithLifecycle()
+        // 订阅小球位置（注意：Ball 里 posX/posY 是“中心点”）
+        val ballPosition by viewModel.ballPosition.collectAsStateWithLifecycle()
 
-        // Placeholder, remove when TODO is done:
-        val ballPosition = Offset.Zero
-
-
+        // 球场背景
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -137,22 +129,22 @@ fun GameScreen(viewModel: BallViewModel) {
                     contentScale = ContentScale.FillBounds
                 )
                 .onSizeChanged { size ->
-                    // TODO: Tell the ViewModel the size of the field
-                    // viewModel.initBall(...)
+                    // 通知 ViewModel 场地尺寸（像素）
+                    val width = size.width.toFloat()
+                    val height = size.height.toFloat()
+                    viewModel.initBall(width, height, ballSizePx)
                 }
         ) {
-            // 3. The Ball
+            // 小球（用中心点减半径来偏移，让它画在正确位置）
             Image(
                 painter = painterResource(id = R.drawable.soccer),
                 contentDescription = "Soccer Ball",
                 modifier = Modifier
                     .size(ballSize)
                     .offset {
-                        // TODO: Use the collected ballPosition to set the offset
-                        // Hint: You need to convert Float to Int
                         IntOffset(
-                            x = ballPosition.x.roundToInt(),
-                            y = ballPosition.y.roundToInt()
+                            x = (ballPosition.x - ballRadiusPx).roundToInt(),
+                            y = (ballPosition.y - ballRadiusPx).roundToInt()
                         )
                     }
             )
