@@ -66,10 +66,10 @@ class BallViewModel : ViewModel() {
             val gY = sensorY - baseY
 
             // 3️⃣ 映射到屏幕坐标，并放大
-            //  向右倾斜：gX < 0，希望球向右 → xAcc = -gX
+            //  向右倾斜：传感器X减小，gX为负，xAcc为正 → 球向右移动
             val xAcc = -gX * SENSITIVITY
-            //  向上/下倾斜：gY 正负决定球在屏幕上下的加速度
-            val yAcc =  gY * SENSITIVITY
+            //  向上倾斜：传感器Y增大，gY为正，但屏幕Y向下，所以需要取反
+            val yAcc = gY * SENSITIVITY
 
             // 4️⃣ 更新物理状态
             currentBall.updatePositionAndVelocity(xAcc, yAcc, dT)
